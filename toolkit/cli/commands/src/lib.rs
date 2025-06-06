@@ -1,19 +1,32 @@
-//! # CLI Commands
+//! # CLI Commands for Partner Chains
 //!
-//! Provides command-line interface utilities for Partner Chains cryptographic operations.
-//! This crate contains modules for generating signatures, managing cryptographic keys,
-//! and interacting with Partner Chain blockchain data.
+//! This crate provides command structures and execution logic for Partner Chains operations.
+//! These commands are integrated into the `partner-chains-demo-node` binary to provide
+//! cryptographic operations, signature generation, and blockchain interaction capabilities.
 //!
-//! ## Overview
+//! ## Core Functionality
 //!
-//! The cli-commands crate supports core Partner Chains operations:
+//! - **Registration Signatures**: Generate cryptographic signatures for validator registration
+//! - **Address Association**: Create signatures linking Cardano and Partner Chain addresses
+//! - **Block Producer Metadata**: Sign metadata for block producer operations
+//! - **Genesis UTXO Retrieval**: Query the genesis UTXO from on-chain storage
+//! - **Key Parameter Handling**: Parse and validate various cryptographic key formats
 //!
-//! - **Address Association**: Link Cardano stake addresses with Partner Chain addresses
-//! - **Block Producer Metadata**: Sign metadata for block producer registration
-//! - **Validator Registration**: Generate signatures for mainchain and sidechain validator registration
-//! - **Genesis UTXO Retrieval**: Query genesis UTXO from blockchain storage
-//! - **Key Management**: Handle various cryptographic key types and conversions
+//! ## Integration
 //!
+//! These commands are exposed through the Partner Chains node CLI via the
+//! `PartnerChainsSubcommand` enum in the `partner-chains-node-commands` crate.
+//! Each command implements the clap `Parser` trait for argument parsing and provides
+//! an `execute` method for performing the required operations.
+//!
+//! ## Architecture
+//!
+//! Commands follow a consistent pattern:
+//! - Struct fields represent command parameters with clap annotations
+//! - `execute` methods perform the core logic and output results
+//! - Key parameter types provide secure parsing and validation
+//! - Output structures serialize results as JSON for consumption
+//! 
 //! ## Usage Examples
 //!
 //! ### Address Association Signature
@@ -43,15 +56,13 @@
 //!   --sidechain-signing-key 02dbfc8b66c22f931a6647fd86db2fc073dd564b99837226a1bdfe7a99578854ec \
 //!   --registration-utxo 8ea10040249ad3033ae7c4d4b69e0b2e2b50a90741b783491cb5ddf8ced0d861#4
 //! ```
+//! 
+//! ### Genesis UTXO Retrieval
 //!
-//! ## Integration
-//!
-//! This crate integrates with the broader Partner Chains ecosystem:
-//!
-//! - Uses `sidechain-domain` for core types and cryptographic primitives
-//! - Leverages Substrate runtime APIs for blockchain interaction
-//! - Supports Cardano stake pool operations through Ed25519 signatures
-//! - Enables cross-chain communication via ECDSA signatures
+//! ```bash
+//! cargo run --bin partner-chains-demo-node -- sidechain-params \
+//!   --dev
+//! ```
 
 pub mod address_association_signatures;
 pub mod block_producer_metadata_signatures;
