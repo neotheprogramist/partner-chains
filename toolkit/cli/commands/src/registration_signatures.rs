@@ -71,7 +71,7 @@ use std::fmt::{Display, Formatter};
 /// ## Example Usage
 ///
 /// ```bash
-/// partner-cargo run --bin partner-chains-demo-node -- registration-signatures \
+/// cargo run --bin partner-chains-demo-node -- registration-signatures \
 ///   --genesis-utxo e41c9b57841e582c207bb68d5e9736fb48c7af5f1ec29ade00692fa5e0e47efa#4 \
 ///   --mainchain-signing-key 2bebcb7fbc74a6e0fd6e00a311698b047b7b659f0e047ff5349dbd984aefc52c \
 ///   --sidechain-signing-key 02dbfc8b66c22f931a6647fd86db2fc073dd564b99837226a1bdfe7a99578854ec \

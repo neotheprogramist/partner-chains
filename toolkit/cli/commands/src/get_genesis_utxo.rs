@@ -22,7 +22,7 @@ use std::sync::Arc;
 /// ## CLI Integration
 /// 
 /// ```bash
-/// cargo run --bin partner-chains-demo-node -- sidechain-params <OPTIONS>
+/// cargo run --bin partner-chains-demo-node -- sidechain-params --dev
 /// ```
 /// In options specify the chain specification. It can be one of the predefined ones (dev, local, or staging) or it can be a path to a file with the chainspec (such as one exported by the `build-spec` subcommand).
 ///
