@@ -1,34 +1,23 @@
-//! # Cryptographic Key Parameters
+//! # Key Parameter Types for CLI Commands
 //!
-//! Provides parameter types for various cryptographic keys used in Partner Chains operations.
-//! This module defines wrapper types for different key algorithms and formats,
-//! enabling secure key handling and CLI parameter parsing.
+//! This module provides wrapper types for various cryptographic keys used in
+//! Partner Chain operations. These types handle secure parsing, validation,
+//! and conversion of key material from command-line string inputs into the
+//! appropriate cryptographic primitives.
 //!
-//! ## Key Types Overview
+//! ## Key Type Categories
 //!
-//! - **Sidechain Keys**: secp256k1 keys for Partner Chain operations
-//! - **Stake Pool Keys**: Ed25519 keys for Cardano stake pool operations
-//! - **Stake Keys**: Ed25519 keys for Cardano stake operations
-//! - **Cross-Chain Keys**: ECDSA keys for cross-chain communication
-//! - **Plain Keys**: String-based public key parameters
+//! - **Sidechain Keys**: ECDSA keys for Partner Chain validator operations
+//! - **Mainchain Keys**: Ed25519 keys for Cardano stake pool operations  
+//! - **Cross-Chain Keys**: ECDSA keys for cross-chain bridge operations
+//! - **Stake Keys**: Ed25519 keys for general Cardano staking operations
 //!
-//! ## Hex Format Support
+//! ## Security Considerations
 //!
-//! All key parameters support hex string input with optional "0x" prefix:
-//!
-//! ```bash
-//! --signing-key d75c630516c33a66b11b3444a70b65083aeb21353bd919cc5e3daa02c9732a84
-//! --signing-key 0xd75c630516c33a66b11b3444a70b65083aeb21353bd919cc5e3daa02c9732a84
-//! ```
-//!
-//! ## Key Conversions
-//!
-//! Each key parameter type provides methods to derive corresponding public keys:
-//!
-//! - `StakeSigningKeyParam::vkey()` → `StakePublicKey`
-//! - `StakePoolSigningKeyParam::vkey()` → `StakePoolPublicKey`
-//! - `CrossChainSigningKeyParam::vkey()` → `CrossChainPublicKey`
-//! - `SidechainSigningKeyParam::to_pub_key()` → `secp256k1::PublicKey`
+//! All key parameter types provide secure parsing that validates key material
+//! format and cryptographic validity. Input validation prevents malformed keys
+//! from propagating through the system and ensures only valid cryptographic
+//! material is used for signature generation.
 
 use sidechain_domain::*;
 use std::convert::Infallible;
@@ -37,29 +26,32 @@ use std::io;
 use std::io::ErrorKind;
 use std::str::FromStr;
 
-/// Parameter type for sidechain signing keys.
+/// Wrapper type for ECDSA private keys used in Partner Chain validator operations.
 ///
-/// Wraps a secp256k1 secret key for Partner Chain operations.
-/// Used for signing sidechain transactions and validator registration.
+/// This struct encapsulates a secp256k1 private key and provides secure parsing
+/// from string representations. The key is used for signing operations on the
+/// Partner Chain side of cross-chain transactions and validator registration.
 ///
-/// ## Input Format
+/// ## Key Format
 ///
-/// Accepts hex-encoded private key with optional "0x" prefix:
+/// Accepts hexadecimal string inputs with optional "0x" prefix. The underlying
+/// key material must be a valid 32-byte secp256k1 private key.
 ///
-/// ```bash
-/// --sidechain-signing-key 02dbfc8b66c22f931a6647fd86db2fc073dd564b99837226a1bdfe7a99578854ec
-/// ```
+/// ## Usage
+///
+/// This type is primarily used in registration signature commands where validators
+/// must prove their identity on the Partner Chain network through ECDSA signatures.
 #[derive(Clone, Debug)]
 pub struct SidechainSigningKeyParam(pub secp256k1::SecretKey);
 
 impl SidechainSigningKeyParam {
-	/// Convert signing key to corresponding public key.
+	/// Derives the corresponding ECDSA public key from this private key.
 	///
-	/// Derives the secp256k1 public key from the private key using global context.
+	/// This method uses the global secp256k1 context to perform the key derivation,
+	/// ensuring consistent public key generation across the system.
 	///
-	/// ## Returns
-	///
-	/// `secp256k1::PublicKey` corresponding to this signing key.
+	/// # Returns
+	/// The secp256k1 public key corresponding to this private key
 	pub fn to_pub_key(&self) -> secp256k1::PublicKey {
 		secp256k1::PublicKey::from_secret_key_global(&self.0)
 	}
@@ -75,18 +67,15 @@ impl FromStr for SidechainSigningKeyParam {
 	}
 }
 
-/// Parameter type for sidechain public keys.
+/// Wrapper type for ECDSA public keys used in Partner Chain operations.
 ///
-/// Wraps a `SidechainPublicKey` for CLI parameter parsing and display.
-/// Used when public key input is required instead of private key.
+/// This struct encapsulates a Partner Chain public key and provides parsing
+/// and display functionality for ECDSA public keys in hexadecimal format.
 ///
-/// ## Input Format
+/// ## Key Format
 ///
-/// Accepts hex-encoded public key with optional "0x" prefix:
-///
-/// ```bash
-/// --sidechain-public-key 02dbfc8b66c22f931a6647fd86db2fc073dd564b99837226a1bdfe7a99578854ec
-/// ```
+/// The public key is stored as a byte vector containing the compressed secp256k1
+/// public key representation (33 bytes starting with 0x02 or 0x03).
 #[derive(Clone, Debug)]
 pub struct SidechainPublicKeyParam(pub SidechainPublicKey);
 
@@ -106,18 +95,11 @@ impl FromStr for SidechainPublicKeyParam {
 	}
 }
 
-/// Parameter type for plain public key strings.
+/// Generic wrapper for plain string public key parameters.
 ///
-/// Simple wrapper for string-based public key parameters that don't require
-/// specific cryptographic parsing or validation.
-///
-/// ## Input Format
-///
-/// Accepts any string as public key identifier:
-///
-/// ```bash
-/// --public-key "any-string-identifier"
-/// ```
+/// This type provides a simple container for public key strings that don't
+/// require cryptographic validation, useful for scenarios where the key
+/// format is flexible or application-specific.
 #[derive(Clone, Debug)]
 pub struct PlainPublicKeyParam(pub String);
 
@@ -135,10 +117,11 @@ impl FromStr for PlainPublicKeyParam {
 	}
 }
 
-/// Error type for Ed25519 signing key parsing operations.
+/// Error types that can occur during Ed25519 signing key parsing.
 ///
-/// Combines hex decoding errors and Ed25519 cryptographic errors
-/// that can occur during key parameter parsing.
+/// This enum represents the possible failure modes when parsing Ed25519 keys
+/// from hexadecimal string inputs, including both hex decoding errors and
+/// cryptographic validation errors.
 #[derive(Debug, thiserror::Error)]
 pub enum Ed25519SigningKeyError {
 	/// Hex decoding error when parsing key from string
@@ -155,26 +138,21 @@ impl From<Ed25519SigningKeyError> for io::Error {
 	}
 }
 
-/// Parse Ed25519 signing key from hex string.
+/// Parses a hexadecimal string into an ed25519-zebra signing key.
 ///
-/// Converts hex-encoded string to `ed25519_zebra::SigningKey`, supporting
-/// optional "0x" prefix removal. Used internally by Ed25519 key parameter types.
+/// This internal function provides common parsing logic for Ed25519 keys
+/// used across multiple key parameter types. It handles hex decoding and
+/// cryptographic validation in a consistent manner.
 ///
-/// ## Parameters
+/// # Arguments
+/// * `s` - Hexadecimal string representation of the Ed25519 private key
 ///
-/// - `s`: Hex-encoded signing key string with optional "0x" prefix
+/// # Returns
+/// * `Ok(ed25519_zebra::SigningKey)` - Successfully parsed and validated key
+/// * `Err(Ed25519SigningKeyError)` - Parsing or validation failure
 ///
-/// ## Returns
-///
-/// `Result<ed25519_zebra::SigningKey, Ed25519SigningKeyError>` containing:
-/// - `Ok(SigningKey)`: Successfully parsed Ed25519 signing key
-/// - `Err(Ed25519SigningKeyError)`: Parsing or key creation error
-///
-/// ## Errors
-///
-/// Returns error if:
-/// - Hex decoding fails (invalid hex characters or length)
-/// - Ed25519 key creation fails (invalid key bytes)
+/// # Key Format
+/// Expects a 32-byte (64 character) hexadecimal string with optional "0x" prefix.
 pub(crate) fn parse_zebra_signing_key(
 	s: &str,
 ) -> Result<ed25519_zebra::SigningKey, Ed25519SigningKeyError> {
@@ -182,23 +160,22 @@ pub(crate) fn parse_zebra_signing_key(
 	Ok(ed25519_zebra::SigningKey::try_from(hex::decode(trimmed)?.as_slice())?)
 }
 
-/// Parameter type for Cardano stake pool signing keys.
+/// Wrapper type for Ed25519 private keys used in Cardano stake pool operations.
 ///
-/// Wraps an Ed25519 signing key for Cardano stake pool operations.
-/// Used for mainchain validator registration and stake pool management.
+/// This struct encapsulates an Ed25519 private key specifically used for
+/// Cardano stake pool operator signing operations. The key is used in
+/// validator registration processes to prove stake pool operator authority.
 ///
-/// ## Input Format
+/// ## Key Format
 ///
-/// Accepts hex-encoded Ed25519 private key with optional "0x" prefix:
+/// Accepts 32-byte Ed25519 private keys in hexadecimal format with optional
+/// "0x" prefix. The key undergoes cryptographic validation to ensure it
+/// represents a valid Ed25519 private key.
 ///
-/// ```bash
-/// --mainchain-signing-key 2bebcb7fbc74a6e0fd6e00a311698b047b7b659f0e047ff5349dbd984aefc52c
-/// ```
+/// ## Usage
 ///
-/// ## Key Requirements
-///
-/// The key must be a valid 32-byte Ed25519 private key. This corresponds to
-/// Cardano stake pool signing keys used for mainchain operations.
+/// This type is used in registration signature commands where stake pool
+/// operators must prove their authority to register validators on Partner Chains.
 #[derive(Clone, Debug)]
 pub struct StakePoolSigningKeyParam(pub ed25519_zebra::SigningKey);
 
@@ -211,44 +188,50 @@ impl FromStr for StakePoolSigningKeyParam {
 }
 
 impl From<[u8; 32]> for StakePoolSigningKeyParam {
+	/// Creates a stake pool signing key parameter from a 32-byte array.
+	///
+	/// This method provides direct construction from raw key bytes,
+	/// useful for programmatic key generation or testing scenarios.
+	///
+	/// # Arguments
+	/// * `key` - 32-byte array containing the Ed25519 private key
+	///
+	/// # Returns
+	/// A new `StakePoolSigningKeyParam` instance
 	fn from(key: [u8; 32]) -> Self {
 		Self(ed25519_zebra::SigningKey::from(key))
 	}
 }
 
 impl StakePoolSigningKeyParam {
-	/// Derive corresponding stake pool public key.
+	/// Derives the corresponding Ed25519 public key for stake pool operations.
 	///
-	/// Generates the Ed25519 verification key (public key) from the signing key.
-	/// Used for stake pool identification and signature verification.
+	/// This method generates the verification key that corresponds to this
+	/// signing key, which is used in stake pool registration and validation.
 	///
-	/// ## Returns
-	///
-	/// `StakePoolPublicKey` corresponding to this signing key.
+	/// # Returns
+	/// The `StakePoolPublicKey` corresponding to this private key
 	pub fn vkey(&self) -> StakePoolPublicKey {
 		StakePoolPublicKey(ed25519_zebra::VerificationKey::from(&self.0).into())
 	}
 }
 
-/// Parameter type for Cardano stake signing keys.
+/// Wrapper type for Ed25519 private keys used in general Cardano staking operations.
 ///
-/// Wraps an Ed25519 signing key for Cardano stake operations.
-/// Used for address association and stake-related signatures.
+/// This struct encapsulates an Ed25519 private key used for Cardano stake
+/// address operations, particularly in address association commands where
+/// stake key holders prove their authority to link addresses.
 ///
-/// ## Input Format
+/// ## Key Format
 ///
-/// Accepts hex-encoded Ed25519 private key with optional "0x" prefix:
+/// Accepts 32-byte Ed25519 private keys in hexadecimal format with optional
+/// "0x" prefix. Key validation ensures cryptographic correctness.
 ///
-/// ```bash
-/// --signing-key d75c630516c33a66b11b3444a70b65083aeb21353bd919cc5e3daa02c9732a84
-/// ```
+/// ## Usage
 ///
-/// ## Usage Context
-///
-/// Commonly used for:
-/// - Address association signatures
-/// - Stake delegation operations
-/// - Cardano mainchain interactions
+/// This type is primarily used in address association commands where Cardano
+/// stake key holders authorize the linking of their stake address with a
+/// Partner Chain address.
 #[derive(Clone, Debug)]
 pub struct StakeSigningKeyParam(pub ed25519_zebra::SigningKey);
 
@@ -261,36 +244,34 @@ impl FromStr for StakeSigningKeyParam {
 }
 
 impl StakeSigningKeyParam {
-	/// Derive corresponding stake public key.
+	/// Derives the corresponding Ed25519 public key for stake operations.
 	///
-	/// Generates the Ed25519 verification key (public key) from the signing key.
-	/// Used for stake identification and signature verification.
+	/// This method generates the verification key that corresponds to this
+	/// signing key, which is used in stake address operations and verification.
 	///
-	/// ## Returns
-	///
-	/// `StakePublicKey` corresponding to this signing key.
+	/// # Returns
+	/// The `StakePublicKey` corresponding to this private key
 	pub fn vkey(&self) -> StakePublicKey {
 		StakePublicKey(ed25519_zebra::VerificationKey::from(&self.0).into())
 	}
 }
 
-/// Parameter type for cross-chain ECDSA signing keys.
+/// Wrapper type for ECDSA private keys used in cross-chain bridge operations.
 ///
-/// Wraps a k256 ECDSA secret key for cross-chain operations.
-/// Used for block producer metadata signing and cross-chain communication.
+/// This struct encapsulates a secp256k1 private key (via k256 implementation)
+/// used for cross-chain operations between Cardano and Partner Chain networks.
+/// The key enables block producers to prove their identity across both chains.
 ///
-/// ## Input Format
+/// ## Key Format
 ///
-/// Accepts hex-encoded ECDSA private key (no "0x" prefix required):
+/// Accepts 32-byte secp256k1 private keys in hexadecimal format. The key
+/// undergoes validation to ensure it represents a valid ECDSA private key.
 ///
-/// ```bash
-/// --cross-chain-signing-key cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854
-/// ```
+/// ## Cross-Chain Integration
 ///
-/// ## Key Algorithm
-///
-/// Uses secp256k1 ECDSA (k256 implementation) for cross-chain signatures.
-/// Compatible with Ethereum-style ECDSA keys and signatures.
+/// This key type is specifically designed for operations that span both
+/// Cardano and Partner Chain networks, enabling secure cross-chain identity
+/// verification and metadata signing for block producers.
 #[derive(Clone, Debug)]
 pub struct CrossChainSigningKeyParam(pub k256::SecretKey);
 
@@ -302,15 +283,15 @@ impl FromStr for CrossChainSigningKeyParam {
 	}
 }
 
-	/// Derive corresponding cross-chain public key.
-	///
-	/// Generates the ECDSA public key from the secret key using SEC1 encoding.
-	/// Used for cross-chain identity verification and signature validation.
-	///
-	/// ## Returns
-	///
-	/// `CrossChainPublicKey` containing SEC1-encoded public key bytes.
 impl CrossChainSigningKeyParam {
+	/// Derives the corresponding ECDSA public key for cross-chain operations.
+	///
+	/// This method generates the verification key that corresponds to this
+	/// signing key, formatted as compressed SEC1 bytes for cross-chain compatibility.
+	///
+	/// # Returns
+	/// The `CrossChainPublicKey` corresponding to this private key, containing
+	/// the compressed SEC1 representation of the ECDSA public key
 	pub fn vkey(&self) -> CrossChainPublicKey {
 		CrossChainPublicKey(self.0.public_key().to_sec1_bytes().to_vec())
 	}
