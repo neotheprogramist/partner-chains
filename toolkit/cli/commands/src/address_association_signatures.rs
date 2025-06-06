@@ -32,7 +32,7 @@ use std::str::FromStr;
 /// The struct is generic over `PartnerchainAddress` to support different address
 /// formats used by various Partner Chain implementations (e.g., AccountId32, H160).
 /// 
-/// ## CLI Integration
+/// ## Example usage
 ///
 /// ```bash
 /// cargo run --bin partner-chains-demo-node -- sign-address-association

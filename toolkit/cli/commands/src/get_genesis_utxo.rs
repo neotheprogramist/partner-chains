@@ -18,6 +18,8 @@ use std::sync::Arc;
 /// the chain's storage. It operates on the best (latest) block to ensure the
 /// most current state is queried.
 /// 
+/// ## Example Usage
+/// 
 /// ```bash
 /// cargo run --bin partner-chains-demo-node -- sidechain-params --dev
 /// ```

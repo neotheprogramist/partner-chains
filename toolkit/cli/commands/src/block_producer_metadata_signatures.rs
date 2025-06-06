@@ -1,16 +1,3 @@
-//! # Block Producer Metadata Signatures
-//!
-//! Generate ECDSA signatures for block producer metadata registration.
-//! This module enables block producers to sign their metadata with cross-chain keys
-//! for secure metadata updates and verification.
-//!
-//! ## Process Overview
-//!
-//! 1. Load metadata from JSON file
-//! 2. Create signed message with cross-chain public key, metadata, and genesis UTXO
-//! 3. Sign message using ECDSA cross-chain signing key
-//! 4. Output signature, public key hash, and encoded data in JSON format
-
 use crate::key_params::CrossChainSigningKeyParam;
 use anyhow::anyhow;
 use byte_string::ByteString;
@@ -22,17 +9,29 @@ use sidechain_domain::*;
 use sp_block_producer_metadata::MetadataSignedMessage;
 use std::io::{BufReader, Read};
 
-/// Command for generating block producer metadata signatures.
+/// Command structure for generating block producer metadata signatures.
 ///
-/// Signs block producer metadata using ECDSA cross-chain keys to authorize metadata updates.
-/// The metadata file must contain valid JSON that can be deserialized to the target metadata type.
+/// This struct represents the parameters required to cryptographically sign
+/// block producer metadata for submission to the Partner Chain runtime.
+/// The metadata signature process ensures that metadata updates can only
+/// be performed by authorized block producers who possess the corresponding
+/// private keys.
 ///
-/// ## Parameters
+/// ## Metadata Signing Process
 ///
-/// - `genesis_utxo`: Identifies the target Partner Chain
-/// - `metadata_file`: Path to JSON file containing block producer metadata
-/// - `cross_chain_signing_key`: ECDSA signing key for cross-chain operations
+/// The command performs the following operations:
+/// 1. Reads metadata from a JSON file
+/// 2. SCALE-encodes the metadata for deterministic serialization
+/// 3. Creates a signed message structure including the cross-chain public key
+/// 4. Generates an ECDSA signature using the block producer's private key
+/// 5. Outputs structured JSON with signatures and encoded data
 ///
+/// ## Cross-Chain Integration
+///
+/// The signature is generated using an ECDSA key that corresponds to the
+/// block producer's cross-chain identity, enabling verification across
+/// both Cardano and Partner Chain networks.
+/// 
 /// ## Example Usage
 ///
 /// ```bash
@@ -49,53 +48,37 @@ use std::io::{BufReader, Read};
 #[derive(Clone, Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct BlockProducerMetadataSignatureCmd {
-	/// Genesis UTXO of the target Partner Chain
+	/// Genesis UTXO that uniquely identifies the target Partner Chain
 	#[arg(long)]
 	pub genesis_utxo: UtxoId,
-	/// Path of the file containing the metadata in JSON format
+	/// Path to JSON file containing the metadata to be signed
 	#[arg(long)]
 	pub metadata_file: String,
-	/// ECDSA signing key of the block producer, corresponding to the public key that will be associated with new metadata
+	/// ECDSA private key for cross-chain operations, corresponding to the block producer's identity
 	#[arg(long)]
 	pub cross_chain_signing_key: CrossChainSigningKeyParam,
 }
 
 impl BlockProducerMetadataSignatureCmd {
-	/// Execute the block producer metadata signature command.
+	/// Executes the metadata signature generation process.
 	///
-	/// Reads metadata from the specified file, generates a cryptographic signature,
-	/// and outputs the result as formatted JSON. The metadata must be valid JSON
-	/// that deserializes to the target metadata type.
+	/// This method performs the complete workflow for signing block producer metadata:
+	/// 1. Opens and reads the specified metadata file
+	/// 2. Processes the metadata through the signature generation pipeline
+	/// 3. Outputs the resulting signatures and encoded data as JSON
 	///
-	/// ## Process
+	/// # Type Parameters
+	/// * `M` - The metadata type that implements the required traits for deserialization and encoding
 	///
-	/// 1. Open and read metadata file
-	/// 2. Parse JSON metadata content
-	/// 3. Generate ECDSA signature with cross-chain key
-	/// 4. Output JSON with signature and metadata information
+	/// # Returns
+	/// * `Ok(())` - Successful execution with JSON output printed to stdout
+	/// * `Err(anyhow::Error)` - File I/O error, JSON parsing error, or signature generation failure
 	///
-	/// ## Type Parameters
-	///
-	/// - `M`: Metadata type that implements `Send + Sync + DeserializeOwned + Encode`
-	///
-	/// ## Errors
-	///
-	/// Returns `anyhow::Error` if:
-	/// - File cannot be opened or read
-	/// - JSON parsing fails
-	/// - JSON serialization of output fails
-	///
-	/// ## Example Output
-	///
-	/// ```json
-	/// {
-	///   "signature": "0xf86d3aa75a6a8bda35dfdd2472b8e5f2f95446e4542ab0adb6f3e7681f01b74060082c0debfb9616a54f88cf42b88e1a2f43c75dc4394bfdde33972deb491fcb",
-	///   "cross_chain_pub_key": "0x020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a1",
-	///   "cross_chain_pub_key_hash": "0x4a20b7cab322b36838a8e4b6063c3563cdb79c97175f6c2d233dac4d",
-	///   "encoded_metadata": "0x48687474703a2f2f6578616d706c652e636f6d1031323334",
-	///   "encoded_message": "0x84020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a148687474703a2f2f6578616d706c652e636f6d103132333401010101010101010101010101010101010101010101010101010101010101010100"
-	/// }
-	/// ```
+	/// # Errors
+	/// This method will return an error if:
+	/// - The metadata file cannot be opened or read
+	/// - The file content is not valid JSON matching the expected metadata type
+	/// - JSON serialization of the output fails
 	pub fn execute<M: Send + Sync + DeserializeOwned + Encode>(&self) -> anyhow::Result<()> {
 		let file = std::fs::File::open(self.metadata_file.clone())
 			.map_err(|err| anyhow!("Failed to open file {}: {err}", self.metadata_file))?;
@@ -107,42 +90,32 @@ impl BlockProducerMetadataSignatureCmd {
 		Ok(())
 	}
 
-	/// Generate signature and output data for block producer metadata.
+	/// Processes metadata from a reader and generates cryptographic signatures.
 	///
-	/// Parses metadata from the provided reader, creates a signed message with the cross-chain
-	/// public key and genesis UTXO, then generates an ECDSA signature. Returns all relevant
-	/// data including the signature, public key information, and encoded message data.
+	/// This method handles the core logic of metadata signature generation:
+	/// 1. Deserializes JSON metadata from the provided reader
+	/// 2. SCALE-encodes the metadata for deterministic serialization
+	/// 3. Creates a signed message structure with cross-chain public key and genesis UTXO
+	/// 4. Generates ECDSA signature using the block producer's private key
+	/// 5. Constructs structured output with all relevant cryptographic material
 	///
-	/// ## Process
+	/// # Type Parameters
+	/// * `M` - Metadata type that must be deserializable from JSON and SCALE-encodable
 	///
-	/// 1. Deserialize metadata from JSON reader
-	/// 2. SCALE-encode metadata for signature generation
-	/// 3. Create `MetadataSignedMessage` with cross-chain public key, metadata, and genesis UTXO
-	/// 4. Generate ECDSA signature using cross-chain signing key
-	/// 5. Return JSON object with signature and metadata information
+	/// # Arguments
+	/// * `metadata_reader` - Reader providing JSON-formatted metadata content
 	///
-	/// ## Type Parameters
+	/// # Returns
+	/// * `Ok(serde_json::Value)` - JSON object containing signatures and encoded data
+	/// * `Err(anyhow::Error)` - Deserialization or signature generation error
 	///
-	/// - `M`: Metadata type that implements `Send + Sync + DeserializeOwned + Encode`
-	///
-	/// ## Parameters
-	///
-	/// - `metadata_reader`: Reader containing JSON metadata content
-	///
-	/// ## Returns
-	///
-	/// `serde_json::Value` containing:
-	/// - `signature`: ECDSA signature bytes in hex format
-	/// - `cross_chain_pub_key`: Cross-chain public key in hex format
-	/// - `cross_chain_pub_key_hash`: Hash of the cross-chain public key
+	/// # Output Structure
+	/// The returned JSON contains:
+	/// - `signature`: ECDSA signature over the complete message
+	/// - `cross_chain_pub_key`: Public key corresponding to the signing key
+	/// - `cross_chain_pub_key_hash`: Hash of the public key for efficient lookups
 	/// - `encoded_metadata`: SCALE-encoded metadata bytes
-	/// - `encoded_message`: SCALE-encoded signed message bytes
-	///
-	/// ## Errors
-	///
-	/// Returns `anyhow::Error` if:
-	/// - JSON deserialization fails
-	/// - Metadata structure is invalid
+	/// - `encoded_message`: SCALE-encoded complete signed message
 	pub fn get_output<M: Send + Sync + DeserializeOwned + Encode>(
 		&self,
 		metadata_reader: impl Read,
