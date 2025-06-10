@@ -87,7 +87,7 @@ impl RegistrationSignaturesCmd {
 	/// 4. Returns structured output containing all signatures and public keys
 	///
 	/// # Returns
-	/// A `RegistrationCmdOutput` containing the complete signature set
+	/// A `RegistrationCmdOutput` containing the signature set
 	pub fn execute(&self) -> RegistrationCmdOutput {
 		self.to_register_validator_message(self.genesis_utxo)
 			.sign_and_prepare_registration_cmd_output(
@@ -97,7 +97,7 @@ impl RegistrationSignaturesCmd {
 	}
 }
 
-/// Output structure containing the complete set of registration signatures and public keys.
+/// Output structure containing the set of registration signatures and public keys.
 ///
 /// This struct represents the final result of the registration signature generation process,
 /// containing all the cryptographic material needed for validator registration on both
@@ -189,7 +189,7 @@ impl RegisterValidatorMessage {
 		}
 	}
 
-	/// Generates dual signatures and prepares the complete registration output.
+	/// Generates dual signatures and prepares the registration output.
 	///
 	/// This method performs the cryptographic signing operations required for
 	/// validator registration, generating both Ed25519 and ECDSA signatures
@@ -200,8 +200,7 @@ impl RegisterValidatorMessage {
 	/// * `sidechain_key` - ECDSA signing key for the Partner Chain validator
 	///
 	/// # Returns
-	/// A `RegistrationCmdOutput` containing all signatures and public keys
-	/// required for validator registration
+	/// [`RegistrationCmdOutput`]
 	///
 	/// # Cryptographic Process
 	/// 1. Generates Ed25519 signature using the mainchain key
